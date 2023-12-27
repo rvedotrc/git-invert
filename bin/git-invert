@@ -4,6 +4,46 @@ $LOAD_PATH << File.expand_path(File.join(File.dirname(__FILE__), "..", "lib"))
 
 require 'git-invert'
 
-GitInvert::CommitReader.each_commit(git_dir: '/Users/rachel/git/github.com/rvedotrc/dropbox-hacking/.git', revisions: nil) do |x|
-  p [x.commit, x.tree, x.parents]
+git_dir = ARGV.first
+commits = GitInvert::CommitReader.each_commit(git_dir:, revisions: nil)
+creator = GitInvert::CommitCreator.new(git_dir:)
+r = GitInvert::Inverter.new(commits:).invert(&creator.method(:create_commit))
+
+old_to_new = r.fetch(:old_to_new)
+tail_commit = creator.create_tail(new_parents: r.fetch(:new_tips))
+
+require 'open3'
+o, s = Open3.capture2(
+  "git",
+  "--git-dir", git_dir,
+  "show-ref",
+  "--heads",
+  "--tags",
+  stdin_data: "",
+)
+s.success? or abort
+
+commands = o.each_line.map do |line|
+  old_commit, ref = line.chomp.split(" ")
+  new_commit = old_to_new.fetch(old_commit)
+  "update #{ref} #{new_commit} #{old_commit}\n"
 end
+
+commands = [
+  "start\n",
+  *commands,
+  "update refs/heads/TAIL #{tail_commit}\n",
+  "prepare\n",
+  "commit\n"
+]
+
+o, s = Open3.capture2(
+  "git",
+  "--git-dir", git_dir,
+  "update-ref",
+  "--stdin",
+  stdin_data: commands.join,
+)
+s.success? or abort
+
+puts "Good luck!"
