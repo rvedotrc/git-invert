@@ -4,4 +4,4 @@
 $LOAD_PATH << File.expand_path(File.join(File.dirname(__FILE__), "..", "lib"))
 
 require 'git-invert'
-GitInvert::Runner.new.run(git_dir: ARGV.first)
+GitInvert::Runner.new.run(argv: ARGV)
