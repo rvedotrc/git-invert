@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'commit_data'
-
 module GitInvert
   class CommitReader
     def self.each_commit(git_dir:, **, &)
